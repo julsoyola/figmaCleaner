@@ -1,0 +1,10 @@
+{
+  "name": "figma-cleaner-plugin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "build": "tsc", "check": "tsc --noEmit" },
+  "devDependencies": {
+    "@figma/plugin-typings": "latest",
+    "typescript": "latest"
+  }
+}
