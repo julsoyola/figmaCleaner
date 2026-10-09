@@ -2,7 +2,7 @@
   "name": "figmaCleaner",
   "id": "figma-cleaner-plugin",
   "api": "1.0.0",
-  "main": "code.js",
-  "ui": "ui.html",
+  "main": "dist/code.js",
+  "ui": "src/ui.html",
   "editorType": ["figma"]
 }

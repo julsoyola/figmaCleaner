@@ -4,7 +4,9 @@
     "lib": ["ES2017"],
     "strict": true,
     "types": ["@figma/plugin-typings"],
-    "noEmitOnError": true
+    "noEmitOnError": true,
+    "rootDir": "src",
+    "outDir": "dist"
   },
-  "files": ["code.ts"]
+  "files": ["src/code.ts"]
 }
