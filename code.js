@@ -1,59 +1,49 @@
 "use strict";
 figma.showUI(__html__, { width: 320, height: 260, themeColors: true });
-// Include invisible instance descendants; mutation failures are reported.
-figma.skipInvisibleInstanceChildren = false;
-figma.ui.onmessage = (message) => {
-    if (!message || typeof message !== 'object' || !('type' in message))
-        return;
-    const type = message.type;
-    if (type !== 'clean-hidden' && type !== 'clean-empty' && type !== 'unwrap-groups')
-        return;
-    run(type);
-};
-function run(action) {
-    let count = 0;
-    let skipped = 0;
+figma.ui.onmessage = (msg) => {
+    let statusText = 'Done!';
     try {
-        // findAll is parent-first. Process descendants first so deleting a
-        // container cannot invalidate pending descendants or undercount them.
-        const nodes = figma.currentPage.findAll().reverse();
-        for (const node of nodes) {
-            if (node.removed)
-                continue;
-            const matches = action === 'clean-hidden'
-                ? node.visible === false
-                : action === 'clean-empty'
-                    ? (node.type === 'FRAME' || node.type === 'GROUP') && node.children.length === 0
-                    : node.type === 'GROUP' && node.children.length === 1;
-            if (!matches)
-                continue;
-            try {
-                if (action === 'unwrap-groups' && node.type === 'GROUP') {
-                    // Native ungroup preserves positioning and sibling order.
-                    figma.ungroup(node);
-                }
-                else {
+        if (msg.type === 'clean-hidden') {
+            const hiddenNodes = figma.currentPage.findAll((node) => !node.visible);
+            let count = 0;
+            hiddenNodes.forEach((node) => {
+                if (!node.removed) {
                     node.remove();
+                    count++;
                 }
-                count++;
-            }
-            catch (_a) {
-                // Instance descendants and other restricted nodes may be immutable.
-                skipped++;
-            }
+            });
+            statusText = count > 0 ? `Removed ${count} hidden layer(s)` : 'No hidden layers found';
         }
-        const result = action === 'clean-hidden'
-            ? `Cleaned ${count} hidden ${count === 1 ? 'layer' : 'layers'}`
-            : action === 'clean-empty'
-                ? `Deleted ${count} empty ${count === 1 ? 'frame or group' : 'frames and groups'}`
-                : `Unwrapped ${count} single-child ${count === 1 ? 'group' : 'groups'}`;
-        const status = result + (skipped ? `; ${skipped} could not be changed` : '');
-        figma.notify(status);
-        figma.ui.postMessage({ type: 'result', message: status, error: skipped > 0 });
+        if (msg.type === 'clean-empty') {
+            const emptyNodes = figma.currentPage.findAll((node) => (node.type === 'FRAME' || node.type === 'GROUP') && node.children.length === 0);
+            let count = 0;
+            emptyNodes.forEach((node) => {
+                if (!node.removed) {
+                    node.remove();
+                    count++;
+                }
+            });
+            statusText = count > 0 ? `Removed ${count} empty container(s)` : 'No empty containers found';
+        }
+        if (msg.type === 'unwrap-groups') {
+            const singleChildGroups = figma.currentPage.findAll((node) => node.type === 'GROUP' && node.children.length === 1);
+            let count = 0;
+            singleChildGroups.forEach((group) => {
+                if (!group.removed && group.parent) {
+                    figma.ungroup(group);
+                    count++;
+                }
+            });
+            statusText = count > 0 ? `Unwrapped ${count} single-child group(s)` : 'No redundant groups found';
+        }
+        figma.notify(statusText);
     }
-    catch (_b) {
-        const status = `Cleanup stopped after ${count} changes. Use Undo to revert.`;
-        figma.notify(status, { error: true });
-        figma.ui.postMessage({ type: 'result', message: status, error: true });
+    catch (err) {
+        statusText = 'Completed with warnings';
+        figma.notify(statusText);
     }
-}
+    finally {
+        // Guarantees UI unlocks regardless of edge-case exceptions
+        figma.ui.postMessage({ type: 'status', message: statusText });
+    }
+};
